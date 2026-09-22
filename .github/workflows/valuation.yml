@@ -1,0 +1,76 @@
+name: Macro Valuation (tarjetas)
+
+# Genera las tarjetas de valuacion (petroleo WTI/Brent, DXY, bonos 2/10/30A) y
+# las publica en jttyr/macro-valuation-data (rama data, latest/<KEY>.png), que
+# es lo que lee el dashboard de Render. Mismo patron que gex-terminal.
+#
+# Corre en dias habiles: premarket (12:00 UTC = 06:00 MX) y mediodia (19:00 UTC
+# = 13:00 MX). Tambien se puede disparar a mano (workflow_dispatch) o via
+# cron-job.org (repository_dispatch), igual que GEX.
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [run-macro-valuation]
+  schedule:
+    - cron: "0 12 * * 1-5"   # 06:00 MX -- premarket
+    - cron: "0 19 * * 1-5"   # 13:00 MX -- refresco de mediodia
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      # Kaleido usa la fuente instalada en el SISTEMA (fontconfig). La tarjeta
+      # esta hecha con Share Tech Mono, igual que la terminal -- sin esto, el
+      # runner cae a una mono generica y las tarjetas se ven distintas.
+      - name: Instalar fuente Share Tech Mono
+        run: |
+          mkdir -p ~/.fonts
+          curl -fsSL -o ~/.fonts/ShareTechMono-Regular.ttf \
+            https://github.com/google/fonts/raw/main/ofl/sharetechmono/ShareTechMono-Regular.ttf
+          fc-cache -f
+
+      - name: Generar tarjetas
+        run: python run.py
+
+      # Deja UNA imagen fija por ticker (latest/<KEY>.png) en la rama data del
+      # repo de datos. El dashboard solo pide ese archivo. Push --force: no hay
+      # historial que conservar, cada corrida sobreescribe.
+      - name: Publicar en rama data de macro-valuation-data
+        env:
+          GH_TOKEN: ${{ secrets.MACRO_DATA_TOKEN }}
+        run: |
+          set -e
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/jttyr/macro-valuation-data.git"
+          rm -rf /tmp/data-branch
+          git clone --quiet --branch data --single-branch "$REPO_URL" /tmp/data-branch
+          cd /tmp/data-branch
+          mkdir -p latest
+          shopt -s nullglob
+          for f in "$GITHUB_WORKSPACE"/output/val_*.png; do
+            base=$(basename "$f" .png)
+            key=$(echo "$base" | cut -d'_' -f2)   # val_<KEY>_<fecha> -> <KEY>
+            cp "$f" "latest/${key}.png"
+          done
+          git add -A
+          git commit --quiet -m "actualizar tarjetas de valuacion $(date -u +%FT%TZ)" --allow-empty
+          git push --quiet origin data --force
+
+      - name: Subir PNGs como artifact (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: valuation-${{ github.run_id }}
+          path: output/val_*.png
+          retention-days: 1
