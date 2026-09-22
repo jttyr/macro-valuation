@@ -96,8 +96,8 @@ def _bar(fig, bx0, bx1, cy, pos, avg_pos=None):
     if avg_pos is not None:
         ax = bx0 + span * (max(0, min(100, avg_pos)) / 100.0)
         _line(fig, ax, cy - 0.013, ax, cy + 0.013, COLORS["muted"], 1)
-    # marcador del precio actual: linea vertical fina morada (sutil)
-    _line(fig, cx, cy - 0.040, cx, cy + 0.040, COLORS["mark"], 2.5)
+    # marcador del precio actual: linea vertical fina morada (sutil, corta)
+    _line(fig, cx, cy - 0.027, cx, cy + 0.027, COLORS["mark"], 2.5)
 
 
 def render(av: AssetValuation, out_dir: Path) -> Path:
@@ -127,8 +127,10 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     # columnas numericas (borde derecho) y grupo de POSICION (barra + cambio):
     # la barra y el % de cambio van juntos bajo un solo encabezado.
     cMin, cAvg, cMax = 0.525, 0.63, 0.735
-    bx0, bx1 = 0.775, 0.865   # barra compacta
-    cChg = 0.975              # cambio %, pegado a la barra (mismo grupo)
+    # Grupo POSICION centrado: barra compacta + numero de cambio juntos.
+    bx0, bx1 = 0.785, 0.865   # barra compacta
+    cChg = 0.950              # cambio %, pegado a la barra (mismo grupo)
+    rline = 0.950             # borde derecho de separadores/encabezado
 
     # encabezados
     hy = 0.885
@@ -137,7 +139,7 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     _text(fig, cAvg, hy, "PROMEDIO", 11, COLORS["dim"], xanchor="right")
     _text(fig, cMax, hy, "MAXIMO", 11, COLORS["dim"], xanchor="right")
     _text(fig, (bx0 + cChg) / 2, hy, "POSICION", 11, COLORS["dim"], xanchor="center")
-    _line(fig, px0, 0.845, 0.975, 0.845, COLORS["hair"], 1)
+    _line(fig, px0, 0.845, rline, 0.845, COLORS["hair"], 1)
 
     # filas de ventanas (semanal arriba -> trimestral)
     order = {w.code: w for w in av.windows}
@@ -163,7 +165,7 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
         _text(fig, cChg, cy, f"{w.chg_period:+.2f}%", 16,
               COLORS["white"] if w.chg_period >= 0 else COLORS["soft"], xanchor="right")
         if i < len(rows):
-            _line(fig, px0, top_b - step * (i + 1), 0.975, top_b - step * (i + 1),
+            _line(fig, px0, top_b - step * (i + 1), rline, top_b - step * (i + 1),
                   COLORS["hair"], 1)
 
     # ================= Fila HISTORICO (solo datos, sin barra) =================
