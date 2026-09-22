@@ -114,26 +114,24 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     _rect(fig, 0, 0, 1, 1, COLORS["bg"])
     d, u = av.decimals, av.unit
 
-    # ================= Izquierda: identidad + precio centrado =================
+    # ================= Izquierda: precio actual (centrado) =================
+    # Sin bloque de identidad: la terminal ya rotula el activo (tab + titulo)
+    # justo arriba de la tarjeta.
     lcx = 0.165   # centro del bloque izquierdo
-    _line(fig, 0.028, 0.80, 0.028, 0.88, COLORS["mark"], 3)   # acento fino
-    _text(fig, 0.044, 0.845, av.label, 40, COLORS["white"])
-    _text(fig, 0.045, 0.775, av.name, 13.5, COLORS["muted"])
-    _text(fig, 0.045, 0.735, av.ticker, 11.5, COLORS["dim"])
-
-    _text(fig, lcx, 0.55, "PRECIO ACTUAL", 12, COLORS["dim"], xanchor="center")
-    _text(fig, lcx, 0.415, _fmt(av.current, d, u), 62, COLORS["white"], xanchor="center")
+    _text(fig, lcx, 0.60, "PRECIO ACTUAL", 12, COLORS["dim"], xanchor="center")
+    _text(fig, lcx, 0.465, _fmt(av.current, d, u), 64, COLORS["white"], xanchor="center")
     arrow = "▲" if av.change_1d_pct >= 0 else "▼"
-    _text(fig, lcx, 0.28, f"{arrow}  {av.change_1d_pct:+.2f}%  hoy", 15,
+    _text(fig, lcx, 0.325, f"{arrow}  {av.change_1d_pct:+.2f}%  hoy", 15,
           COLORS["soft"], xanchor="center")
 
     _line(fig, 0.315, 0.10, 0.315, 0.90, COLORS["hair"], 1)
 
     # ================= Derecha: tabla por periodo =================
     px0 = 0.35
-    # bordes derechos de cada columna numerica + barra
-    cMin, cAvg, cMax = 0.565, 0.685, 0.805
-    bx0, bx1 = 0.835, 0.985
+    # bordes derechos de cada columna numerica, barra y columna de variacion
+    cMin, cAvg, cMax = 0.545, 0.645, 0.745
+    bx0, bx1 = 0.775, 0.885
+    cChg = 0.985   # variacion % del precio en el periodo (der)
 
     # encabezados
     hy = 0.885
@@ -142,6 +140,7 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     _text(fig, cAvg, hy, "PROMEDIO", 11, COLORS["dim"], xanchor="right")
     _text(fig, cMax, hy, "MAXIMO", 11, COLORS["dim"], xanchor="right")
     _text(fig, (bx0 + bx1) / 2, hy, "POSICION", 11, COLORS["dim"], xanchor="center")
+    _text(fig, cChg, hy, "CAMBIO", 11, COLORS["dim"], xanchor="right")
     _line(fig, px0, 0.845, 0.985, 0.845, COLORS["hair"], 1)
 
     # filas de ventanas (semanal arriba -> trimestral)
@@ -165,6 +164,8 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
         _text(fig, cMax, cy, _fmt(w.high, d, u), 16, COLORS["soft"], xanchor="right")
         avg_pos = (w.avg - w.low) / (w.high - w.low) * 100 if w.high > w.low else 50
         _bar(fig, bx0, bx1, cy, w.range_pos, avg_pos=avg_pos)
+        _text(fig, cChg, cy, f"{w.chg_period:+.2f}%", 16,
+              COLORS["white"] if w.chg_period >= 0 else COLORS["soft"], xanchor="right")
         if i < len(rows):
             _line(fig, px0, top_b - step * (i + 1), 0.985, top_b - step * (i + 1),
                   COLORS["hair"], 1)
@@ -182,6 +183,9 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     # maximo historico
     _text(fig, cMax, hcy + 0.020, _fmt(av.ath, d, u), 16, COLORS["soft"], xanchor="right")
     _text(fig, cMax, hcy - 0.036, _fmt_date(av.ath_date), 10.5, COLORS["dim"], xanchor="right")
+    # variacion desde el inicio del historico
+    _text(fig, cChg, hcy, f"{av.at_chg:+.2f}%", 16,
+          COLORS["white"] if av.at_chg >= 0 else COLORS["soft"], xanchor="right")
 
     # ================= Footer =================
     stamp = av.asof.strftime("%d/%m/%Y %H:%M")

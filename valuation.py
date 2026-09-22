@@ -69,6 +69,7 @@ class WindowStat:
     dev_pct: float      # (actual - promedio) / promedio * 100
     range_pos: float    # 0..100 dentro de [low, high]
     z: float            # (actual - promedio) / std
+    chg_period: float   # variacion vs el inicio del periodo (hace n sesiones)
     label: str
     bias: str
 
@@ -96,6 +97,7 @@ class AssetValuation:
     atl: float = float("nan")
     atl_date: dt.date | None = None
     at_pos: float = 50.0            # posicion actual dentro del rango historico
+    at_chg: float = 0.0             # variacion vs el inicio del historico
     history_from: dt.date | None = None
     error: str | None = None
 
@@ -162,9 +164,11 @@ def compute_asset(spec: dict) -> AssetValuation:
         range_pos = (current - lo) / rng * 100 if rng > 0 else 50.0
         range_pos = max(0.0, min(100.0, range_pos))
         z = (current - avg) / std if std > 0 else 0.0
+        first = float(w[0])
+        chg_period = (current - first) / first * 100 if first else 0.0
         label, bias = classify(range_pos, z)
         windows.append(WindowStat(code, name, len(w), avg, hi, lo, std,
-                                   dev_pct, range_pos, z, label, bias))
+                                   dev_pct, range_pos, z, chg_period, label, bias))
         pos_accum.append(range_pos)
         z_accum.append(z)
 
@@ -175,6 +179,8 @@ def compute_asset(spec: dict) -> AssetValuation:
     at_rng = ath - atl
     at_pos = (current - atl) / at_rng * 100 if at_rng > 0 else 50.0
     at_pos = max(0.0, min(100.0, at_pos))
+    hist_first = float(hist["Close"].iloc[0])
+    at_chg = (current - hist_first) / hist_first * 100 if hist_first else 0.0
 
     tail = close.tail(63)
     return AssetValuation(
@@ -187,7 +193,7 @@ def compute_asset(spec: dict) -> AssetValuation:
         overall_label=overall_label, overall_bias=overall_bias,
         overall_pos=overall_pos,
         ath=ath, ath_date=ath_date, atl=atl, atl_date=atl_date,
-        at_pos=at_pos, history_from=history_from,
+        at_pos=at_pos, at_chg=at_chg, history_from=history_from,
     )
 
 
