@@ -128,9 +128,9 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     # la barra y el % de cambio van juntos bajo un solo encabezado.
     cMin, cAvg, cMax = 0.525, 0.63, 0.735
     # Grupo POSICION centrado: barra compacta + numero de cambio juntos.
-    bx0, bx1 = 0.785, 0.865   # barra compacta
-    cChg = 0.950              # cambio %, pegado a la barra (mismo grupo)
-    rline = 0.950             # borde derecho de separadores/encabezado
+    bx0, bx1 = 0.795, 0.875   # barra compacta
+    cChg = 0.945              # cambio %, pegado a la barra (poco espacio)
+    rline = 0.945             # borde derecho de separadores/encabezado
 
     # encabezados
     hy = 0.885
