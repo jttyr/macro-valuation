@@ -80,28 +80,24 @@ def _dot(fig, cx, cy, r_px, fill, line=None, lw=0):
 
 
 def _bar(fig, bx0, bx1, cy, pos, avg_pos=None):
-    """Barra tipo lollipop: linea base tenue de min(izq) a max(der); el tramo
-    recorrido (min -> actual) mas claro; punto redondo morado en el precio
-    actual y un tick fino para el promedio. Limpia y facil de leer."""
+    """Barra de rango compacta: linea base tenue de min(izq) a max(der); el
+    tramo recorrido (min -> actual) un poco mas claro; tick del promedio y una
+    linea vertical fina morada -- sutil -- en el precio actual."""
     span = bx1 - bx0
     cx = bx0 + span * (max(0, min(100, pos)) / 100.0)
     # linea base (todo el rango)
     _line(fig, bx0, cy, bx1, cy, COLORS["track"], 2)
     # topes finos en min y max
-    _line(fig, bx0, cy - 0.024, bx0, cy + 0.024, COLORS["dim"], 1.4)
-    _line(fig, bx1, cy - 0.024, bx1, cy + 0.024, COLORS["dim"], 1.4)
+    _line(fig, bx0, cy - 0.016, bx0, cy + 0.016, COLORS["dim"], 1.2)
+    _line(fig, bx1, cy - 0.016, bx1, cy + 0.016, COLORS["dim"], 1.2)
     # tramo recorrido min -> actual
     _line(fig, bx0, cy, cx, cy, COLORS["soft"], 2)
     # tick del promedio
     if avg_pos is not None:
         ax = bx0 + span * (max(0, min(100, avg_pos)) / 100.0)
-        _line(fig, ax, cy - 0.020, ax, cy + 0.020, COLORS["muted"], 1.2)
-    # marcador del precio actual: ovalo vertical (unico color)
-    hw, hh = 5.5 / W, 17.0 / H
-    fig.add_shape(type="circle", xref="paper", yref="paper",
-                  x0=cx - hw, y0=cy - hh, x1=cx + hw, y1=cy + hh,
-                  fillcolor=COLORS["mark"], line=dict(color=COLORS["bg"], width=1.5),
-                  layer="above")
+        _line(fig, ax, cy - 0.013, ax, cy + 0.013, COLORS["muted"], 1)
+    # marcador del precio actual: linea vertical fina morada (sutil)
+    _line(fig, cx, cy - 0.040, cx, cy + 0.040, COLORS["mark"], 2.5)
 
 
 def render(av: AssetValuation, out_dir: Path) -> Path:
@@ -128,10 +124,11 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
 
     # ================= Derecha: tabla por periodo =================
     px0 = 0.35
-    # bordes derechos de cada columna numerica, barra y columna de variacion
-    cMin, cAvg, cMax = 0.545, 0.645, 0.745
-    bx0, bx1 = 0.775, 0.885
-    cChg = 0.985   # variacion % del precio en el periodo (der)
+    # columnas numericas (borde derecho) y grupo de POSICION (barra + cambio):
+    # la barra y el % de cambio van juntos bajo un solo encabezado.
+    cMin, cAvg, cMax = 0.525, 0.63, 0.735
+    bx0, bx1 = 0.775, 0.865   # barra compacta
+    cChg = 0.975              # cambio %, pegado a la barra (mismo grupo)
 
     # encabezados
     hy = 0.885
@@ -139,9 +136,8 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     _text(fig, cMin, hy, "MINIMO", 11, COLORS["dim"], xanchor="right")
     _text(fig, cAvg, hy, "PROMEDIO", 11, COLORS["dim"], xanchor="right")
     _text(fig, cMax, hy, "MAXIMO", 11, COLORS["dim"], xanchor="right")
-    _text(fig, (bx0 + bx1) / 2, hy, "POSICION", 11, COLORS["dim"], xanchor="center")
-    _text(fig, cChg, hy, "CAMBIO", 11, COLORS["dim"], xanchor="right")
-    _line(fig, px0, 0.845, 0.985, 0.845, COLORS["hair"], 1)
+    _text(fig, (bx0 + cChg) / 2, hy, "POSICION", 11, COLORS["dim"], xanchor="center")
+    _line(fig, px0, 0.845, 0.975, 0.845, COLORS["hair"], 1)
 
     # filas de ventanas (semanal arriba -> trimestral)
     order = {w.code: w for w in av.windows}
@@ -167,7 +163,7 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
         _text(fig, cChg, cy, f"{w.chg_period:+.2f}%", 16,
               COLORS["white"] if w.chg_period >= 0 else COLORS["soft"], xanchor="right")
         if i < len(rows):
-            _line(fig, px0, top_b - step * (i + 1), 0.985, top_b - step * (i + 1),
+            _line(fig, px0, top_b - step * (i + 1), 0.975, top_b - step * (i + 1),
                   COLORS["hair"], 1)
 
     # ================= Fila HISTORICO (solo datos, sin barra) =================
