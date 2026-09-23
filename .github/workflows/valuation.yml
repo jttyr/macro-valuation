@@ -42,9 +42,10 @@ jobs:
       - name: Generar tarjetas
         run: python run.py
 
-      # Deja UNA imagen fija por ticker (latest/<KEY>.png) en la rama data del
-      # repo de datos. El dashboard solo pide ese archivo. Push --force: no hay
-      # historial que conservar, cada corrida sobreescribe.
+      # Deja una imagen por ticker por dia (latest/<KEY>_<fecha>.png) en la
+      # rama data, conservando los ultimos 4 dias -- el dashboard usa la mas
+      # reciente por default y puede navegar los dias anteriores con
+      # flechas/swipe. Push --force: no hay historial de commits que conservar.
       - name: Publicar en rama data de macro-valuation-data
         env:
           GH_TOKEN: ${{ secrets.MACRO_DATA_TOKEN }}
@@ -58,10 +59,16 @@ jobs:
           cd /tmp/data-branch
           mkdir -p latest
           shopt -s nullglob
+          TODAY=$(TZ=America/Mexico_City date +%F)
+          keys=""
           for f in "$GITHUB_WORKSPACE"/output/val_*.png; do
             base=$(basename "$f" .png)
             key=$(echo "$base" | cut -d'_' -f2)   # val_<KEY>_<fecha> -> <KEY>
-            cp "$f" "latest/${key}.png"
+            cp "$f" "latest/${key}_${TODAY}.png"
+            keys="$keys $key"
+          done
+          for key in $(echo "$keys" | tr ' ' '\n' | sort -u); do
+            ls -1 "latest/${key}"_*.png 2>/dev/null | sort -r | tail -n +5 | xargs -r rm -f
           done
           git add -A
           git commit --quiet -m "actualizar tarjetas de valuacion $(date -u +%FT%TZ)" --allow-empty
