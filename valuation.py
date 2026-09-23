@@ -26,9 +26,14 @@ import yfinance as yf
 # --- Definicion de activos -------------------------------------------------
 # ticker: simbolo primario en Yahoo. fallback: alterno si el primario falla.
 # unit: "price" o "%" -- solo cambia como se formatea el numero en la tarjeta.
+# front_root: para petroleo NO se usa el continuo de Yahoo (CL=F/BZ=F) porque
+# BZ=F apunta a un contrato "Last Day Financial" ~$5 abajo del front-month que
+# cotizan Investing/brokers. En su lugar se resuelve el contrato front-month
+# real (p.ej. BZX26.NYM = Brent Nov 2026) de forma dinamica, para que ademas
+# ruede solo cada mes. Si falla, cae al continuo (ticker).
 ASSETS = [
-    {"key": "OIL",   "label": "WTI",       "name": "Crudo WTI (front-month)", "ticker": "CL=F",     "fallback": None,    "unit": "price", "decimals": 2},
-    {"key": "BRENT", "label": "BRENT",     "name": "Crudo Brent (front-month)", "ticker": "BZ=F",   "fallback": None,    "unit": "price", "decimals": 2},
+    {"key": "OIL",   "label": "WTI",       "name": "Crudo WTI (front-month)", "ticker": "CL=F",     "fallback": None,    "front_root": "CL", "unit": "price", "decimals": 2},
+    {"key": "BRENT", "label": "BRENT",     "name": "Crudo Brent (front-month)", "ticker": "BZ=F",   "fallback": None,    "front_root": "BZ", "unit": "price", "decimals": 2},
     {"key": "DXY",   "label": "DXY",       "name": "US Dollar Index",         "ticker": "DX-Y.NYB", "fallback": None,    "unit": "price", "decimals": 3},
     {"key": "US02Y", "label": "US02Y",     "name": "Rendimiento Tesoro 2A",   "ticker": "2YY=F",    "fallback": "^IRX",  "unit": "%",     "decimals": 3},
     {"key": "US10Y", "label": "US10Y",     "name": "Rendimiento Tesoro 10A",  "ticker": "^TNX",     "fallback": None,    "unit": "%",     "decimals": 3},
@@ -116,12 +121,53 @@ def _download(ticker: str, period: str = "max"):
     return df if len(df) else None
 
 
+# Codigos de mes de futuros (ene..dic).
+_FUT_MONTH_CODES = "FGHJKMNQUVXZ"
+
+
+def resolve_front_month(root: str, fallback: str) -> str:
+    """Devuelve el ticker del contrato front-month para 'root' (p.ej. 'BZ'/'CL')
+    -- el mas cercano que SIGUE cotizando hoy. Prueba los proximos meses y elige,
+    entre los que operaron en la ultima fecha disponible, el de vencimiento mas
+    proximo. Si no logra resolver, cae a 'fallback' (el continuo)."""
+    today = dt.date.today()
+    candidates = []          # (ticker, ultima_fecha, (anio, mes))
+    latest = None
+    for i in range(0, 7):    # este mes y los proximos 6
+        m = (today.month - 1 + i) % 12 + 1
+        y = today.year + (today.month - 1 + i) // 12
+        tk = f"{root}{_FUT_MONTH_CODES[m - 1]}{y % 100:02d}.NYM"
+        try:
+            h = yf.Ticker(tk).history(period="5d")
+        except Exception:
+            continue
+        if h is None or h.empty:
+            continue
+        last = h.index[-1].date()
+        candidates.append((tk, last, (y, m)))
+        if latest is None or last > latest:
+            latest = last
+    if not candidates:
+        return fallback
+    # entre los que operaron en la ultima fecha global (activos), el mes mas cercano
+    active = [c for c in candidates if c[1] == latest]
+    active.sort(key=lambda c: c[2])
+    return active[0][0] if active else fallback
+
+
 def compute_asset(spec: dict) -> AssetValuation:
-    df = _download(spec["ticker"])
-    used_ticker = spec["ticker"]
+    primary = spec["ticker"]
+    if spec.get("front_root"):
+        primary = resolve_front_month(spec["front_root"], spec["ticker"])
+
+    df = _download(primary)
+    used_ticker = primary
     if df is None and spec.get("fallback"):
         df = _download(spec["fallback"])
         used_ticker = spec["fallback"]
+    if df is None and primary != spec["ticker"]:   # el front fallo -> continuo
+        df = _download(spec["ticker"])
+        used_ticker = spec["ticker"]
 
     if df is None or len(df) < 6:
         return AssetValuation(
