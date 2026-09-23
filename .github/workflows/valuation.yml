@@ -13,8 +13,12 @@ on:
   repository_dispatch:
     types: [run-macro-valuation]
   schedule:
-    - cron: "0 12 * * 1-5"   # 06:00 MX -- premarket
-    - cron: "0 19 * * 1-5"   # 13:00 MX -- refresco de mediodia
+    # Ventana activa de la manana: cada 5 min, 06:00-11:59 MX (L-V).
+    - cron: "*/5 12-17 * * 1-5"
+    # Resto del dia: cada hora, 12:00-17:59 MX (L-V).
+    - cron: "0 18-23 * * 1-5"
+    # Tarde/noche: cada hora, 18:00-23:59 MX (L-V) -- via UTC del dia siguiente.
+    - cron: "0 0-5 * * 2-6"
 
 jobs:
   publish:
