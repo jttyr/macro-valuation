@@ -28,6 +28,7 @@ def prune(out_dir: Path, keep: int):
         files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
         for old in files[keep:]:
             old.unlink(missing_ok=True)
+            old.with_suffix(".json").unlink(missing_ok=True)
 
 
 def main():

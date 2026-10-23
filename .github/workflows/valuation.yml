@@ -13,8 +13,12 @@ on:
   repository_dispatch:
     types: [run-macro-valuation]
   schedule:
-    # Cada 10 min, todos los dias habiles (repo publico -> Actions gratis).
-    - cron: "*/10 * * * 1-5"
+    # Cada 5 min, todos los dias habiles (repo publico -> Actions gratis).
+    - cron: "*/5 * * * 1-5"
+
+concurrency:
+  group: valuation-publish
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -67,17 +71,16 @@ jobs:
             cp "$f" "latest/${key}_${TODAY}.png"
             keys="$keys $key"
           done
+          # JSON de cada tarjeta (dashboard nativo): mismo nombre que su PNG
+          for f in "$GITHUB_WORKSPACE"/output/val_*.json; do
+            base=$(basename "$f" .json)
+            key=$(echo "$base" | cut -d'_' -f2)
+            cp "$f" "latest/${key}_${TODAY}.json"
+          done
           for key in $(echo "$keys" | tr ' ' '\n' | sort -u); do
             ls -1 "latest/${key}"_*.png 2>/dev/null | sort -r | tail -n +5 | xargs -r rm -f
+            ls -1 "latest/${key}"_*.json 2>/dev/null | sort -r | tail -n +5 | xargs -r rm -f
           done
           git add -A
           git commit --quiet -m "actualizar tarjetas de valuacion $(date -u +%FT%TZ)" --allow-empty
           git push --quiet origin data --force
-
-      - name: Subir PNGs como artifact (debug)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: valuation-${{ github.run_id }}
-          path: output/val_*.png
-          retention-days: 1

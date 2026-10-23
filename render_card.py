@@ -195,4 +195,38 @@ def render(av: AssetValuation, out_dir: Path) -> Path:
     ts = av.asof.strftime("%Y%m%d_%H%M")
     path = out_dir / f"val_{av.key}_{ts}.png"
     fig.write_image(str(path), scale=2)
+    try:
+        _dump_json(av, path)
+    except Exception as e:       # el JSON nunca debe tumbar la tarjeta PNG
+        print(f"  (sin JSON de tarjeta: {e!r})")
     return path
+
+
+def _dump_json(av: AssetValuation, png_path: Path):
+    """Mismos datos que dibuja la tarjeta, para que el dashboard la pinte
+    nativa (SVG) en vez de como imagen. Va junto al PNG, mismo nombre."""
+    import json
+
+    def _n(v):
+        return None if v is None or v != v else float(v)
+
+    def _d(x):
+        return x.isoformat() if x else None
+
+    payload = {
+        "key": av.key, "label": av.label, "name": av.name,
+        "unit": av.unit, "decimals": av.decimals,
+        "current": _n(av.current), "change_1d_pct": _n(av.change_1d_pct),
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "windows": [
+            {"code": w.code, "low": _n(w.low), "avg": _n(w.avg), "high": _n(w.high),
+             "range_pos": _n(w.range_pos), "chg_period": _n(w.chg_period)}
+            for w in av.windows
+        ],
+        "ath": _n(av.ath), "ath_date": _d(av.ath_date),
+        "atl": _n(av.atl), "atl_date": _d(av.atl_date),
+        "at_chg": _n(av.at_chg),
+        "history_from": av.history_from.year if av.history_from else None,
+    }
+    with open(png_path.with_suffix(".json"), "w") as fh:
+        json.dump(payload, fh, ensure_ascii=False)
